@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- Données lourdes (on ne versionne pas le brut)
+data/raw/
+data/external/
+# garde éventuellement les résultats légers :
+# !data/processed/*.parquet
+# !figures/
+
+# --- Autres
+.DS_Store
+.env

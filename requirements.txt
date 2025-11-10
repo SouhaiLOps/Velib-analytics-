@@ -4,3 +4,6 @@ scikit-learn
 matplotlib
 jupyter
 ipykernel
+requests
+pyarrow
+tzdata 

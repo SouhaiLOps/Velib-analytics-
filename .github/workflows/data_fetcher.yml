@@ -1,0 +1,56 @@
+name: Fetch Velib Snapshots
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # toutes les 10 minutes (jitter possible)
+  workflow_dispatch:
+
+permissions:
+  contents: write  # nécessaire pour commit/push
+
+concurrency:
+  group: velib-snapshot
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          else
+            python -m pip install pandas numpy requests pyarrow tzdata
+          fi
+
+      - name: Run fetcher
+        env:
+          OUT_DIR: data/raw/velib
+          PARQUET_COMPRESSION: snappy
+        run: python scripts/fetch_data.py
+
+      - name: Commit & push if changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "data: snapshot $(date -u +'%Y-%m-%d %H:%M:%SZ')"
+            git push
+          else
+            echo "No changes to commit."
+          fi

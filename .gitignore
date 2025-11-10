@@ -3,9 +3,8 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# --- Données lourdes (on ne versionne pas le brut)
-data/raw/
-data/external/
+
+
 # garde éventuellement les résultats légers :
 # !data/processed/*.parquet
 # !figures/
@@ -13,3 +12,16 @@ data/external/
 # --- Autres
 .DS_Store
 .env
+
+
+# Ignorer tout le dossier data par défaut
+data/**
+
+# --- Exceptions que l’on souhaite garder dans le repo
+!data/
+!data/raw/
+!data/raw/velib/
+!data/raw/velib/system_information.json
+!data/raw/velib/station_information.csv
+!data/raw/velib/snapshots/
+!data/raw/velib/snapshots/**

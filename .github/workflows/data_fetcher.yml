@@ -1,15 +1,15 @@
 name: Fetch Velib snapshots
 
 on:
-  workflow_dispatch:        # lancement manuel
+  workflow_dispatch:            # lancement manuel
   schedule:
-    - cron: "*/10 * * * *"  # toutes les 10 minutes (tolérer quelques minutes d'écart)
+    - cron: '*/10 * * * *'      # toutes les 10 min (UTC)
 
 permissions:
-  contents: write           # nécessaire pour git commit/push avec GITHUB_TOKEN
+  contents: write               # nécessaire pour git commit/push avec GITHUB_TOKEN
 
 concurrency:
-  group: velib-snapshots    # évite les chevauchements si une exécution traîne
+  group: velib-snapshots        # évite chevauchements
   cancel-in-progress: false
 
 jobs:
@@ -25,32 +25,48 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: '3.12'
 
       - name: Install deps
         run: |
           python -m pip install -U pip
-          python -m pip install -r requirements.txt
+          pip install -r requirements.txt
 
-      # (optionnel) petit jitter pour éviter de taper l'API pile à l'heure
-      - name: Jitter
-        run: sleep $((RANDOM % 90))
+      # Jitter pour éviter "pile à l'heure"
+      - name: Jitter (anti pile-à-l’heure)
+        run: |
+          python - <<'PY'
+          import random, time
+          s = random.randint(20, 120)
+          print(f"Sleeping {s}s"); time.sleep(s)
+          PY
 
       - name: Run fetcher
         env:
-          OUT_DIR: data/raw/velib                 # idem à ton défaut
-          PARQUET_COMPRESSION: snappy             # ou "gzip" si tu préfères
+          OUT_DIR: data/raw/velib
+          PARQUET_COMPRESSION: snappy
         run: python scripts/fetch_data.py
+
+      # (facultatif) debug utile si rien ne se commit
+      - name: Debug repo state
+        run: |
+          echo "UTC now: $(date -u)"
+          ls -Rlah data/raw/velib || true
+          echo '--- git status ---'; git status
+          echo '--- check-ignore ---'; git check-ignore -v data/raw/velib/snapshots/* || true
 
       - name: Commit & push if changed
         run: |
           git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Forcer l'add des artefacts que l'on souhaite versionner
+          git add -f data/raw/velib/snapshots/*.parquet 2>/dev/null || true
+          git add -f data/raw/velib/system_information.json data/raw/velib/station_information.csv 2>/dev/null || true
+
           if git diff --cached --quiet; then
             echo "No changes to commit"
-            exit 0
+          else
+            git commit -m "chore: snapshot $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            git push
           fi
-          git commit -m "snapshot: velib $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          git push

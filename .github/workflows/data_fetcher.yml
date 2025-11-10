@@ -1,15 +1,15 @@
-name: Fetch Velib Snapshots
+name: Fetch Velib snapshots
 
 on:
+  workflow_dispatch:        # lancement manuel
   schedule:
-    - cron: "*/10 * * * *"   # toutes les 10 minutes (jitter possible)
-  workflow_dispatch:
+    - cron: "*/10 * * * *"  # toutes les 10 minutes (tolérer quelques minutes d'écart)
 
 permissions:
-  contents: write  # nécessaire pour commit/push
+  contents: write           # nécessaire pour git commit/push avec GITHUB_TOKEN
 
 concurrency:
-  group: velib-snapshot
+  group: velib-snapshots    # évite les chevauchements si une exécution traîne
   cancel-in-progress: false
 
 jobs:
@@ -31,26 +31,26 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install -U pip
-          if [ -f requirements.txt ]; then
-            python -m pip install -r requirements.txt
-          else
-            python -m pip install pandas numpy requests pyarrow tzdata
-          fi
+          python -m pip install -r requirements.txt
+
+      # (optionnel) petit jitter pour éviter de taper l'API pile à l'heure
+      - name: Jitter
+        run: sleep $((RANDOM % 90))
 
       - name: Run fetcher
         env:
-          OUT_DIR: data/raw/velib
-          PARQUET_COMPRESSION: snappy
+          OUT_DIR: data/raw/velib                 # idem à ton défaut
+          PARQUET_COMPRESSION: snappy             # ou "gzip" si tu préfères
         run: python scripts/fetch_data.py
 
-      - name: Commit & push if changes
+      - name: Commit & push if changed
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -m "data: snapshot $(date -u +'%Y-%m-%d %H:%M:%SZ')"
-            git push
-          else
-            echo "No changes to commit."
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
           fi
+          git commit -m "snapshot: velib $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          git push

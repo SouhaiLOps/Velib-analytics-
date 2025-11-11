@@ -3,7 +3,7 @@ name: Fetch Velib snapshots
 on:
   workflow_dispatch:            # lancement manuel
   schedule:
-    - cron: '*/10 * * * *'      # toutes les 10 min (UTC)
+    - cron: "20 * * * *"       # :20 chaque heure
 
 permissions:
   contents: write               # nécessaire pour git commit/push avec GITHUB_TOKEN
